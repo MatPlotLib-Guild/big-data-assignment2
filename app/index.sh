@@ -1,8 +1,11 @@
 #!/bin/bash
-echo "This script include commands to run mapreduce jobs using hadoop streaming to index documents"
 
-echo "Input path is :"
-echo $1
+set -euo pipefail
 
+INPUT_PATH="${1:-/input/data}"
 
-hdfs dfs -ls /
+echo "Running full indexing flow"
+echo "Input path: $INPUT_PATH"
+
+bash create_index.sh "$INPUT_PATH"
+bash store_index.sh

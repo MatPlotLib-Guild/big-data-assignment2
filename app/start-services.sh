@@ -6,7 +6,10 @@ $HADOOP_HOME/sbin/start-dfs.sh
 
 # starting Yarn daemons
 $HADOOP_HOME/sbin/start-yarn.sh
-# yarn --daemon start resourcemanager
+
+# Keep a local NodeManager on the master so the Spark AM always has a stable place
+# to start even if one of the worker NodeManagers is flaky.
+yarn --daemon start nodemanager
 
 # Start mapreduce history server
 mapred --daemon start historyserver
@@ -22,14 +25,21 @@ hdfs dfsadmin -report
 # If namenode in safemode then leave it
 hdfs dfsadmin -safemode leave
 
-# create a directory for spark apps in HDFS
-hdfs dfs -mkdir -p /apps/spark/jars
-hdfs dfs -chmod 744 /apps/spark/jars
+# Create a compact Spark runtime archive for YARN. Uploading a single archive is
+# much more reliable here than making YARN localize hundreds of individual jars.
+hdfs dfs -mkdir -p /apps/spark
+python3 - <<'PY'
+from pathlib import Path
+import zipfile
 
+archive_path = Path("/tmp/spark-jars.zip")
+jars_dir = Path("/usr/local/spark/jars")
 
-# Copy all jars to HDFS
-hdfs dfs -put /usr/local/spark/jars/* /apps/spark/jars/
-hdfs dfs -chmod +rx /apps/spark/jars/
+with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_STORED) as archive:
+    for jar_path in sorted(jars_dir.glob("*.jar")):
+        archive.write(jar_path, arcname=jar_path.name)
+PY
+hdfs dfs -put -f /tmp/spark-jars.zip /apps/spark/spark-jars.zip
 
 
 # print version of Scala of Spark

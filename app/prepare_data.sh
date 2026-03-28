@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 source .venv/bin/activate
 
 
@@ -11,10 +13,13 @@ unset PYSPARK_PYTHON
 
 # DOWNLOAD a.parquet or any parquet file before you run this
 
-hdfs dfs -put -f a.parquet / && \
+rm -f data/*.txt
+
+hdfs dfs -put -f data/a.parquet / && \
     spark-submit prepare_data.py && \
-    echo "Putting data to hdfs" && \
-    hdfs dfs -put data / && \
-    hdfs dfs -ls /data && \
-    hdfs dfs -ls /indexer/data && \
+    echo "Putting text documents to hdfs" && \
+    hdfs dfs -rm -r -f /input/data && \
+    hdfs dfs -mkdir -p /input/data && \
+    hdfs dfs -put data/*.txt /input/data/ && \
+    hdfs dfs -ls /input/data && \
     echo "done data preparation!"

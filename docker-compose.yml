@@ -13,15 +13,17 @@ services:
     networks:
       - spark-cluster
     depends_on:
-      - cluster-slave-1
-      - cassandra-server
+      cluster-slave-1:
+        condition: service_started
+      cassandra-server:
+        condition: service_healthy
     hostname: cluster-master
     tty: true
     working_dir: /app
     # You can comment the entrypoint to run the script manually inside the container
-    entrypoint: 
-      - bash
-      - /app/app.sh
+    # entrypoint: 
+    #   - bash
+    #   - /app/app.sh
     
   cluster-slave-1:
     image: firasj/spark-docker-cluster
@@ -30,20 +32,31 @@ services:
       - spark-cluster
     hostname: cluster-slave-1
     tty: true
-  # cluster-slave-2:
-  #   image: firasj/spark-docker-cluster
-  #   container_name: cluster-slave-2
-  #   networks:
-  #     - spark-cluster
-  #   depends_on:
-  #     - cluster-slave-1
-  #   hostname: cluster-slave-2
-  #   tty: true
+  cluster-slave-2:
+    image: firasj/spark-docker-cluster
+    container_name: cluster-slave-2
+    networks:
+      - spark-cluster
+    depends_on:
+      cluster-slave-1:
+        condition: service_started
+    hostname: cluster-slave-2
+    tty: true
   cassandra-server:
     image: cassandra
     container_name: cassandra-server
+    environment:
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 128M
+      CASSANDRA_CLUSTER_NAME: search-engine
     ports:
-      - "7000:7000"
+      - "9042:9042"
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh 127.0.0.1 9042 -e 'DESCRIBE KEYSPACES' >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 40s
     networks:
       - spark-cluster
     
